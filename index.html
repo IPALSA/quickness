@@ -225,6 +225,7 @@ async function linkGoogle(){
   updateProfile();
 }
 
+let lastErr="";
 async function saveRecord(r){          // 성공 시 기록 id 반환, 실패 시 null
   if(!remote){
     const a=lsBoard(),id="L"+r.ts;a.push({...r,id});jset("reflex-records",a);records=a;renderLb();return id;
@@ -234,7 +235,7 @@ async function saveRecord(r){          // 성공 시 기록 id 반환, 실패 �
     const res=await fetch(`${DB_URL}/records/${r.level}.json?auth=${a.idToken}`,{method:"POST",body:JSON.stringify({nick:r.nick,time:r.time,ts:r.ts,uid:a.uid})});
     if(!res.ok)throw new Error(res.status);
     const j=await res.json();await load();return j.name;
-  }catch(e){return null}
+  }catch(e){lastErr=e&&(e.code||e.message)||"unknown";return null}
 }
 async function deleteRecord(level,id){  // 성공 true
   if(!remote){jset("reflex-records",lsBoard().filter(x=>x.id!==id));await load();return true}
@@ -340,7 +341,7 @@ function askNick(){
       $("rec").innerHTML='<div class="note">기록되었습니다 ✓</div>';
     }else{
       saved=false;$("ok").disabled=false;
-      alert("서버에 기록하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      alert("서버에 기록하지 못했어요.\n오류: "+lastErr);
     }
   };
   $("ok").onclick=submit;
