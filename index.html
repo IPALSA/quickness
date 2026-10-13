@@ -14,6 +14,7 @@ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:en
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif}
 #topbar{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;display:flex;gap:8px;z-index:5}
+#onl{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);left:12px;z-index:5;padding:9px 12px;border-radius:12px;background:var(--cell);color:var(--fg);font-size:.85rem;font-weight:600;display:none}
 #topbar button{padding:8px 12px;font-size:.9rem}
 main{max-width:480px;margin:0 auto;padding:56px 16px 16px}
 h1{text-align:center;font-size:1.5rem;margin:8px 0 14px}
@@ -65,6 +66,7 @@ tr.top1 td:nth-child(3){color:var(--gold)}
 </style>
 </head>
 <body>
+<div id="onl">🟢 현재 접속자 <b id="online">-</b>명</div>
 <div id="topbar">
   <button class="ghost" id="myBtn">내 기록</button>
   <button class="ghost" id="setBtn" aria-label="설정">⚙️</button>
@@ -189,7 +191,7 @@ try{
   fbAuth=firebase.auth();
   fbAuth.onAuthStateChanged(u=>{
     if(!u){fbAuth.signInAnonymously().catch(()=>{});return}
-    curUid=u.uid;updateProfile();
+    curUid=u.uid;updateProfile();syncMine();
   });
 }catch(e){}
 async function getAuth(){
@@ -226,15 +228,20 @@ async function linkGoogle(){
 }
 
 let lastErr="";
-async function saveRecord(r){          // 성공 시 기록 id 반환, 실패 시 null
+async function saveRecord(r){          // {id} 등록 / {skip:기존기록} 더 느려서 미등록 / null 실패
   if(!remote){
-    const a=lsBoard(),id="L"+r.ts;a.push({...r,id});jset("reflex-records",a);records=a;renderLb();return id;
+    const a=lsBoard(),id="L"+r.ts;a.push({...r,id});jset("reflex-records",a);records=a;renderLb();return {id};
   }
   try{
     const a=await getAuth();
-    const res=await fetch(`${DB_URL}/records/${r.level}.json?auth=${a.idToken}`,{method:"POST",body:JSON.stringify({nick:r.nick,time:r.time,ts:r.ts,uid:a.uid})});
+    const url=`${DB_URL}/records/${r.level}/${a.uid}.json`;
+    const g=await fetch(url);
+    if(!g.ok)throw new Error(g.status);
+    const old=await g.json();
+    if(old&&typeof old.time==="number"&&old.time<=r.time)return {skip:old.time};
+    const res=await fetch(`${url}?auth=${a.idToken}`,{method:"PUT",body:JSON.stringify({nick:r.nick,time:r.time,ts:r.ts,uid:a.uid})});
     if(!res.ok)throw new Error(res.status);
-    const j=await res.json();await load();return j.name;
+    await load();return {id:a.uid};
   }catch(e){lastErr=e&&(e.code||e.message)||"unknown";return null}
 }
 async function deleteRecord(level,id){  // 성공 true
@@ -251,6 +258,31 @@ async function deleteRecord(level,id){  // 성공 true
 const getMy=()=>jget("reflex-my",[]);
 function addMy(e){const a=getMy();a.unshift(e);jset("reflex-my",a.slice(0,100))}
 function updMy(mid,patch){const a=getMy();const i=a.findIndex(x=>x.mid===mid);if(i>=0){Object.assign(a[i],patch);jset("reflex-my",a)}}
+/* 서버의 내 리더보드 기록을 "내 기록" 목록에 반영 (계정 전환/새 기기용) */
+async function syncMine(){
+  if(!remote||!curUid)return;
+  const uid=curUid;
+  try{
+    const res=await Promise.all(Object.keys(LV).map(async k=>{
+      const r=await fetch(`${DB_URL}/records/${k}/${uid}.json`);
+      if(!r.ok)throw new Error(r.status);
+      return [k,await r.json()];
+    }));
+    if(uid!==curUid)return;
+    const my=getMy();
+    res.forEach(([k,v])=>{
+      my.forEach(x=>{if(x.level===k&&x.onBoard&&x.uid===uid&&(!v||x.ts!==v.ts)){x.onBoard=false;x.id=null}});
+      if(!v||typeof v.time!=="number")return;
+      const f=my.find(x=>x.level===k&&x.ts===v.ts);
+      if(f)Object.assign(f,{time:v.time,onBoard:true,id:uid,nick:v.nick,uid});
+      else my.push({mid:"s"+v.ts,level:k,time:v.time,ts:v.ts,onBoard:true,id:uid,nick:v.nick,uid});
+    });
+    my.sort((a,b)=>b.ts-a.ts);
+    jset("reflex-my",my.slice(0,100));
+    if(!$("ov").hidden&&$("mt").textContent==="내 기록"){$("mb").innerHTML="";drawMy($("mb"))}
+  }catch(e){}
+}
+
 const p2=x=>String(x).padStart(2,"0");
 const fmt=ts=>{const d=new Date(ts);return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`};
 const fmtT=ts=>{const d=new Date(ts);return `${fmt(ts).slice(2)} ${p2(d.getHours())}:${p2(d.getMinutes())}`};
@@ -334,10 +366,15 @@ function askNick(){
     const nick=$("nick").value.trim();
     if(!nick){$("nick").focus();return}
     if(saved)return;saved=true;$("ok").disabled=true;
-    const id=await saveRecord({level:cur.level,nick,time:cur.time,ts:cur.ts});
-    if(id){
+    const res=await saveRecord({level:cur.level,nick,time:cur.time,ts:cur.ts});
+    if(res&&res.skip!==undefined){
+      $("rec").innerHTML=`<div class="note">이미 더 빠른 기록(${res.skip.toFixed(4)}초)이 있어서<br>리더보드는 그대로예요.</div>`;
+    }else if(res&&res.id){
       jset("reflex-nick",nick);
-      updMy(cur.mid,{onBoard:true,id,nick,uid:curUid});
+      const my=getMy();
+      my.forEach(x=>{if(x.mid!==cur.mid&&x.level===cur.level&&x.onBoard&&x.uid===res.id){x.onBoard=false;x.id=null}});
+      jset("reflex-my",my);
+      updMy(cur.mid,{onBoard:true,id:res.id,nick,uid:curUid});
       $("rec").innerHTML='<div class="note">기록되었습니다 ✓</div>';
     }else{
       saved=false;$("ok").disabled=false;
@@ -364,6 +401,19 @@ function renderLb(){
   });
   $("where").textContent=!remote?"이 기기에만 저장되는 리더보드":loadErr?"리더보드를 불러오지 못했어요":"전체 참여자 공유 리더보드";
 }
+
+/* ---------- 장난용 가짜 접속자 수 (0~399명, 실제 접속자와 무관) ---------- */
+let fakeN=Math.floor(Math.random()*400);
+function showFake(){
+  const t=fakeN===0?"0명 (나 혼자…?)":fakeN>=300?fakeN+"명 🔥":fakeN+"명";
+  $("onl").textContent="🟢 현재 접속자 "+t;
+}
+function driftFake(){
+  fakeN=Math.max(0,Math.min(399,fakeN+Math.floor(Math.random()*31)-15));
+  showFake();
+  setTimeout(driftFake,2000+Math.random()*3000);
+}
+$("onl").style.display="block";showFake();setTimeout(driftFake,3000);
 
 showMenu();load();setInterval(()=>{if(remote)load()},30000);
 </script>
