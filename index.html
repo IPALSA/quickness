@@ -256,7 +256,7 @@ async function deleteRecord(level,id){  // 성공 true
 
 /* ---------- 내 플레이 기록 (이 기기) ---------- */
 const getMy=()=>jget("reflex-my",[]);
-function addMy(e){const a=getMy();a.unshift(e);jset("reflex-my",a.slice(0,100))}
+function addMy(e){const a=getMy();a.unshift(e);jset("reflex-my",a.slice(0,1000))}
 function updMy(mid,patch){const a=getMy();const i=a.findIndex(x=>x.mid===mid);if(i>=0){Object.assign(a[i],patch);jset("reflex-my",a)}}
 /* 서버의 내 리더보드 기록을 "내 기록" 목록에 반영 (계정 전환/새 기기용) */
 async function syncMine(){
@@ -278,8 +278,8 @@ async function syncMine(){
       else my.push({mid:"s"+v.ts,level:k,time:v.time,ts:v.ts,onBoard:true,id:uid,nick:v.nick,uid});
     });
     my.sort((a,b)=>b.ts-a.ts);
-    jset("reflex-my",my.slice(0,100));
-    if(!$("ov").hidden&&$("mt").textContent==="내 기록"){$("mb").innerHTML="";drawMy($("mb"))}
+    jset("reflex-my",my.slice(0,1000));
+    if(!$("ov").hidden&&$("mt").textContent==="내 기록"){drawMy($("mb"))}
   }catch(e){}
 }
 
@@ -288,15 +288,29 @@ const fmt=ts=>{const d=new Date(ts);return `${d.getFullYear()}-${p2(d.getMonth()
 const fmtT=ts=>{const d=new Date(ts);return `${fmt(ts).slice(2)} ${p2(d.getHours())}:${p2(d.getMinutes())}`};
 
 $("myBtn").onclick=()=>openModal("내 기록",box=>drawMy(box));
+let myFilter="all";
 function drawMy(box){
-  const a=getMy();
-  if(!a.length){box.innerHTML='<div class="note" style="text-align:center;padding:20px 0">아직 플레이 기록이 없어요</div>';return}
+  box.innerHTML="";
+  const all=getMy();
+  if(!all.length){box.innerHTML='<div class="note" style="text-align:center;padding:20px 0">아직 플레이 기록이 없어요</div>';return}
+  const best={};all.forEach(e=>{if(!(e.level in best)||e.time<best[e.level])best[e.level]=e.time});
+  const sum=document.createElement("div");sum.className="note";sum.style.marginBottom="10px";
+  sum.innerHTML=`총 <b>${all.length}</b>회 클리어<br>`+Object.keys(LV).map(k=>`${LV[k].name} 최고 ${k in best?best[k].toFixed(4)+"초":"-"}`).join(" · ");
+  box.appendChild(sum);
+  const fl=document.createElement("div");fl.className="tabs";fl.style.margin="0 0 8px";
+  [["all","전체"],...Object.keys(LV).map(k=>[k,LV[k].name])].forEach(([k,n])=>{
+    const b=document.createElement("button");b.textContent=n;b.className=k===myFilter?"on":"";
+    b.onclick=()=>{myFilter=k;drawMy(box)};fl.appendChild(b);
+  });
+  box.appendChild(fl);
+  const a=myFilter==="all"?all:all.filter(e=>e.level===myFilter);
+  if(!a.length){const d=document.createElement("div");d.className="note";d.style.cssText="text-align:center;padding:16px 0";d.textContent="이 난이도의 기록이 없어요";box.appendChild(d);return}
   const t=document.createElement("table");
   t.innerHTML='<thead><tr><th>난이도</th><th>시간(초)</th><th>날짜</th><th>리더보드</th></tr></thead>';
   const tb=document.createElement("tbody");
   a.forEach(e=>{
     const tr=document.createElement("tr");
-    const cells=[LV[e.level].name,Number(e.time).toFixed(4),fmtT(e.ts)];
+    const cells=[LV[e.level].name,Number(e.time).toFixed(4)+(e.time===best[e.level]?" ⭐":""),fmtT(e.ts)];
     cells.forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td)});
     const td=document.createElement("td");
     if(e.onBoard&&e.uid&&curUid&&e.uid!==curUid){td.textContent="다른 계정";td.className="note"}
@@ -306,7 +320,7 @@ function drawMy(box){
       b.onclick=async()=>{
         if(!confirm(`리더보드에서 "${e.nick}" 기록(${Number(e.time).toFixed(4)}초)을 삭제할까요?`))return;
         b.disabled=true;
-        if(await deleteRecord(e.level,e.id)){updMy(e.mid,{onBoard:false,id:null});box.innerHTML="";drawMy(box)}
+        if(await deleteRecord(e.level,e.id)){updMy(e.mid,{onBoard:false,id:null});drawMy(box)}
         else{alert("삭제하지 못했어요. 이 기기에서 등록한 기록만 삭제할 수 있어요.");b.disabled=false}
       };
       td.appendChild(b);
@@ -316,7 +330,7 @@ function drawMy(box){
   t.appendChild(tb);
   const w=document.createElement("div");w.className="wrap";w.appendChild(t);box.appendChild(w);
   const n=document.createElement("div");n.className="note";n.style.marginTop="10px";
-  n.textContent="리더보드 삭제는 이 기기에서 등록한 기록에만 가능해요.";box.appendChild(n);
+  n.textContent="⭐ = 난이도별 내 최고 기록 · 리더보드 삭제는 이 기기에서 등록한 기록에만 가능해요.";box.appendChild(n);
 }
 
 /* ---------- 게임 화면 ---------- */
