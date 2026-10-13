@@ -5,18 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>순발력 테스트 게임</title>
 <style>
-:root{--bg:#f5f6fa;--card:#fff;--fg:#1f2430;--sub:#6b7280;--acc:#4f46e5;--line:#e5e7eb;--cell:#eef0ff;--done:#d1d5db;
+:root{--bg:#f5f6fa;--card:#fff;--fg:#1f2430;--sub:#6b7280;--acc:#4f46e5;--accfg:#fff;--line:#e5e7eb;--cell:#eef0ff;--done:#d1d5db;--gold:#b45309;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12141c;--card:#1c2030;--fg:#eef0f6;--sub:#9aa3b5;--acc:#8b85ff;--line:#2d3348;--cell:#2a2f4a;--done:#3a4057}}
-:root[data-theme="dark"]{--bg:#12141c;--card:#1c2030;--fg:#eef0f6;--sub:#9aa3b5;--acc:#8b85ff;--line:#2d3348;--cell:#2a2f4a;--done:#3a4057}
+:root[data-theme="dark"]{--bg:#12141c;--card:#1c2030;--fg:#eef0f6;--sub:#9aa3b5;--acc:#8b85ff;--line:#2d3348;--cell:#2a2f4a;--done:#3a4057;--gold:#fcd34d}
+:root[data-theme="ocean"]{--bg:#e8f4fb;--card:#fff;--fg:#0b2a3c;--sub:#4b6b7e;--acc:#0284c7;--line:#cfe6f3;--cell:#dff0fb;--done:#b9d3e3}
+:root[data-theme="forest"]{--bg:#eef6ee;--card:#fff;--fg:#17301d;--sub:#5a7461;--acc:#2f855a;--line:#d3e6d6;--cell:#e2f1e4;--done:#bcd3c0}
+:root[data-theme="sunset"]{--bg:#fff1ea;--card:#fff;--fg:#3b1f1a;--sub:#8a6258;--acc:#e8590c;--line:#f6d8cc;--cell:#ffe4d6;--done:#e6c9bd}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif}
-main{max-width:480px;margin:0 auto;padding:16px}
+#topbar{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;display:flex;gap:8px;z-index:5}
+#topbar button{padding:8px 12px;font-size:.9rem}
+main{max-width:480px;margin:0 auto;padding:56px 16px 16px}
 h1{text-align:center;font-size:1.5rem;margin:8px 0 14px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
 #screen{min-height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
-button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:12px 20px;background:var(--acc);color:#fff;font-weight:600}
+button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:12px 20px;background:var(--acc);color:var(--accfg);font-weight:600}
 button.ghost{background:var(--cell);color:var(--fg)}
+button.sm{padding:5px 10px;font-size:.82rem;border-radius:8px}
 .lv{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 .big{font-size:2.2rem;font-weight:800;letter-spacing:.05em}
 .note{color:var(--sub);font-size:.95rem}
@@ -25,7 +30,7 @@ button.ghost{background:var(--cell);color:var(--fg)}
 #grid button.done{background:var(--done);color:transparent}
 #grid button.bad{background:#fca5a5}
 #timer{font-variant-numeric:tabular-nums;color:var(--sub)}
-input{font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);width:180px}
+input[type=text]{font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);width:180px}
 .tabs{display:flex;gap:6px;margin:18px 0 8px}
 .tabs button{flex:1;padding:9px}
 .tabs button:not(.on){background:var(--cell);color:var(--fg)}
@@ -33,10 +38,37 @@ table{width:100%;border-collapse:collapse;font-size:.92rem}
 th,td{padding:8px 4px;border-bottom:1px solid var(--line);text-align:center}
 th{color:var(--sub);font-weight:600}
 td.n{text-align:left;word-break:break-all}
+tr.top{font-weight:700}
+tr.top td:first-child{font-size:1.4rem}
+tr.top1{background:rgba(250,204,21,.22)}
+tr.top2{background:rgba(148,163,184,.25)}
+tr.top3{background:rgba(217,119,6,.2)}
+tr.top1 td:nth-child(3){color:var(--gold)}
 .wrap{overflow-x:auto}
+/* 팝업 */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.ov[hidden]{display:none}
+.modal{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:16px;width:100%;max-width:420px;max-height:85vh;overflow:auto;padding:16px}
+.mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:1.1rem}
+.mh button{padding:4px 10px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0}
+.row input[type=range]{flex:1;accent-color:var(--acc)}
+.row input[type=checkbox]{width:20px;height:20px;accent-color:var(--acc)}
+.themes{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px}
+.themes button{padding:8px 2px;font-size:.78rem;border:2px solid transparent;display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--cell);color:var(--fg)}
+.themes button.sel{border-color:var(--acc)}
+.prof{display:flex;flex-direction:column;align-items:center;gap:6px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.avatar{width:96px;height:96px;border-radius:50%;background:var(--acc);color:var(--accfg);display:flex;align-items:center;justify-content:center;font:700 1.15rem ui-monospace,Menlo,Consolas,monospace;letter-spacing:.06em;box-shadow:0 0 0 4px var(--cell)}
+.gbtn{margin-top:6px;width:100%;max-width:260px}
+.gbtn:disabled{opacity:.7;cursor:default}
+.sw{width:26px;height:26px;border-radius:50%;border:1px solid var(--line)}
 </style>
 </head>
 <body>
+<div id="topbar">
+  <button class="ghost" id="myBtn">내 기록</button>
+  <button class="ghost" id="setBtn" aria-label="설정">⚙️</button>
+</div>
 <main>
 <h1>순발력 테스트 게임</h1>
 <div class="card"><div id="screen"></div></div>
@@ -48,22 +80,96 @@ td.n{text-align:left;word-break:break-all}
 <div class="note" id="where" style="margin-top:8px"></div></div>
 </main>
 
+<div class="ov" id="ov" hidden><div class="modal">
+  <div class="mh"><b id="mt"></b><button class="ghost" id="mx">✕</button></div>
+  <div id="mb"></div>
+</div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
+/* ================= 설정 (본인 Firebase 정보 입력) ================= */
+const DB_URL="https://quickness-1a53c-default-rtdb.firebaseio.com";
+const API_KEY="AIzaSyAcAFmH-N7zWnw9TwmoBuj7oo3DsdbUW2A";
+/* ================================================================ */
+
 const LV={easy:{name:"쉬움",n:3},normal:{name:"보통",n:4},hard:{name:"어려움",n:5}};
+const THEMES=[["light","기본","#4f46e5"],["dark","다크","#8b85ff"],["ocean","오션","#0284c7"],["forest","포레스트","#2f855a"],["sunset","선셋","#e8590c"]];
 const $=id=>document.getElementById(id);
 const screen=$("screen");
-let level=null,next=1,t0=0,raf=0,wait=0,lastMs=0,saved=false,tab="easy";
-let records=[];
+let level=null,next=1,t0=0,raf=0,wait=0,lastMs=0,saved=false,tab="easy",cur=null;
+let records=[],loadErr=false;
 
-/* ---------- 저장소: Firebase Realtime Database (REST) ---------- */
-// ★ 아래에 본인의 Firebase Realtime Database 주소를 넣으세요. (끝에 / 없이)
-// 예: "https://my-reflex-game-default-rtdb.firebaseio.com"
-const DB_URL="https://quickness-1a53c-default-rtdb.firebaseio.com";
-let remote=!!DB_URL;
-function lsGet(){try{return JSON.parse(localStorage.getItem("reflex-records")||"[]")}catch(e){return[]}}
-function lsSet(a){try{localStorage.setItem("reflex-records",JSON.stringify(a))}catch(e){}}
+/* ---------- 로컬 저장 도우미 ---------- */
+const jget=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}};
+const jset=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+
+/* ---------- 설정(소리/테마) ---------- */
+const S=Object.assign({on:true,vol:70,theme:"light"},jget("reflex-settings",{}));
+function applyTheme(){document.documentElement.dataset.theme=S.theme}
+applyTheme();
+
+/* ---------- 효과음 (WebAudio) ---------- */
+let actx=null;
+function ac(){
+  if(!actx){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;actx=new C()}
+  if(actx.state==="suspended")actx.resume();
+  return actx;
+}
+function tone(f0,f1,dur,type,vol){
+  const c=ac();if(!c)return;
+  const t=c.currentTime,o=c.createOscillator(),g=c.createGain(),v=vol*S.vol/100;
+  if(v<=0)return;
+  o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+  o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+dur+0.02);
+}
+function pop(){if(!S.on)return;const b=500+Math.random()*120;tone(b*1.6,b*.5,.09,"sine",.5)}
+function buzz(){if(!S.on)return;tone(180,120,.15,"square",.15)}
+function fanfare(){if(!S.on)return;[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,f,.18,"triangle",.3),i*110))}
+document.addEventListener("pointerdown",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.parentElement&&b.parentElement.id==="grid"&&Number(b.textContent)!==next)buzz();else pop();
+});
+
+/* ---------- 팝업 ---------- */
+function openModal(title,build){
+  $("mt").textContent=title;$("mb").innerHTML="";build($("mb"));$("ov").hidden=false;
+}
+function closeModal(){$("ov").hidden=true}
+$("mx").onclick=closeModal;
+$("ov").addEventListener("pointerdown",e=>{if(e.target===$("ov"))closeModal()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
+
+$("setBtn").onclick=()=>openModal("설정",box=>{
+  box.innerHTML=`
+  <div class="prof"><div class="avatar" id="pAv"></div><div class="note">내 고유 코드</div><div class="note" id="pAcc"></div>
+  <button class="ghost gbtn" id="gBtn"></button></div>
+  <div class="row"><label for="sOn">효과음 켜기</label><input type="checkbox" id="sOn"></div>
+  <div class="row"><span>음량</span><input type="range" id="sVol" min="0" max="100"><b id="sVal" style="width:2.5em;text-align:right"></b></div>
+  <div style="margin-top:16px">테마</div><div class="themes" id="thm"></div>`;
+  $("sOn").checked=S.on;$("sVol").value=S.vol;$("sVal").textContent=S.vol;
+  $("sOn").onchange=e=>{S.on=e.target.checked;jset("reflex-settings",S);pop()};
+  $("sVol").oninput=e=>{S.vol=+e.target.value;$("sVal").textContent=S.vol};
+  $("sVol").onchange=()=>{jset("reflex-settings",S);pop()};
+  const drawTh=()=>{
+    $("thm").innerHTML="";
+    THEMES.forEach(([k,n,c])=>{
+      const b=document.createElement("button");if(k===S.theme)b.className="sel";
+      b.innerHTML=`<span class="sw" style="background:${c}"></span>${n}`;
+      b.onclick=()=>{S.theme=k;jset("reflex-settings",S);applyTheme();drawTh()};
+      $("thm").appendChild(b);
+    });
+  };
+  drawTh();
+  $("gBtn").onclick=linkGoogle;updateProfile();
+});
+
+/* ---------- 리더보드 저장소 (Firebase REST, 익명 인증) ---------- */
+const remote=!!DB_URL;
+function lsBoard(){return jget("reflex-records",[])}
 async function load(){
-  if(!remote){records=lsGet();renderLb();return}
+  if(!remote){records=lsBoard();loadErr=false;renderLb();return}
   try{
     const out=[];
     await Promise.all(Object.keys(LV).map(async k=>{
@@ -71,25 +177,116 @@ async function load(){
       const r=await fetch(`${DB_URL}/records/${k}.json${q}`);
       if(!r.ok)throw new Error(r.status);
       const o=await r.json()||{};
-      Object.values(o).forEach(v=>out.push({...v,level:k}));
+      Object.entries(o).forEach(([id,v])=>out.push({...v,id,level:k}));
     }));
-    records=out;
-  }catch(e){records=lsGet();remote=false}
+    records=out;loadErr=false;
+  }catch(e){loadErr=true}
   renderLb();
 }
-async function saveRecord(r){
-  if(remote){
-    try{
-      const body={nick:r.nick,time:r.time,ts:r.ts};
-      const res=await fetch(`${DB_URL}/records/${r.level}.json`,{method:"POST",body:JSON.stringify(body)});
-      if(res.ok){await load();return}
-    }catch(e){}
-    remote=false;
+let fbAuth=null,curUid=null;
+try{
+  firebase.initializeApp({apiKey:API_KEY,authDomain:"quickness-1a53c.firebaseapp.com",projectId:"quickness-1a53c"});
+  fbAuth=firebase.auth();
+  fbAuth.onAuthStateChanged(u=>{
+    if(!u){fbAuth.signInAnonymously().catch(()=>{});return}
+    curUid=u.uid;updateProfile();
+  });
+}catch(e){}
+async function getAuth(){
+  if(!fbAuth)throw new Error("no auth");
+  let u=fbAuth.currentUser;
+  if(!u)u=(await fbAuth.signInAnonymously()).user;
+  return {uid:u.uid,idToken:await u.getIdToken()};
+}
+function googleInfo(){
+  const u=fbAuth&&fbAuth.currentUser;
+  return u?u.providerData.find(p=>p.providerId==="google.com"):null;
+}
+function updateProfile(){
+  const av=$("pAv");if(!av)return;
+  av.textContent=curUid?curUid.slice(0,6).toUpperCase():"…";
+  const g=googleInfo();
+  $("pAcc").textContent=g?(g.email||"Google 계정 연동됨"):"게스트 (연동 안 됨)";
+  const gb=$("gBtn");gb.disabled=!!g||!fbAuth;
+  gb.innerHTML=g?"✓ Google 계정 연동됨":'<b style="color:#4285f4">G</b> Google 계정 연동';
+}
+async function linkGoogle(){
+  const u=fbAuth&&fbAuth.currentUser;if(!u)return;
+  try{
+    await u.linkWithPopup(new firebase.auth.GoogleAuthProvider());
+  }catch(e){
+    if(e.code==="auth/credential-already-in-use"&&e.credential){
+      if(confirm("이미 연동된 Google 계정이 있어요. 그 계정으로 전환할까요?\n(전환하면 이 기기의 현재 게스트 기록은 삭제할 수 없게 돼요)"))
+        await fbAuth.signInWithCredential(e.credential).catch(()=>alert("전환하지 못했어요."));
+    }else if(e.code!=="auth/popup-closed-by-user"&&e.code!=="auth/cancelled-popup-request"){
+      alert("Google 연동에 실패했어요. ("+(e.code||"error")+")");
+    }
   }
-  const a=lsGet();a.push(r);lsSet(a);records=a;renderLb();
+  updateProfile();
 }
 
-/* ---------- 화면 ---------- */
+async function saveRecord(r){          // 성공 시 기록 id 반환, 실패 시 null
+  if(!remote){
+    const a=lsBoard(),id="L"+r.ts;a.push({...r,id});jset("reflex-records",a);records=a;renderLb();return id;
+  }
+  try{
+    const a=await getAuth();
+    const res=await fetch(`${DB_URL}/records/${r.level}.json?auth=${a.idToken}`,{method:"POST",body:JSON.stringify({nick:r.nick,time:r.time,ts:r.ts,uid:a.uid})});
+    if(!res.ok)throw new Error(res.status);
+    const j=await res.json();await load();return j.name;
+  }catch(e){return null}
+}
+async function deleteRecord(level,id){  // 성공 true
+  if(!remote){jset("reflex-records",lsBoard().filter(x=>x.id!==id));await load();return true}
+  try{
+    const a=await getAuth();
+    const res=await fetch(`${DB_URL}/records/${level}/${id}.json?auth=${a.idToken}`,{method:"DELETE"});
+    if(!res.ok)throw new Error(res.status);
+    await load();return true;
+  }catch(e){return false}
+}
+
+/* ---------- 내 플레이 기록 (이 기기) ---------- */
+const getMy=()=>jget("reflex-my",[]);
+function addMy(e){const a=getMy();a.unshift(e);jset("reflex-my",a.slice(0,100))}
+function updMy(mid,patch){const a=getMy();const i=a.findIndex(x=>x.mid===mid);if(i>=0){Object.assign(a[i],patch);jset("reflex-my",a)}}
+const p2=x=>String(x).padStart(2,"0");
+const fmt=ts=>{const d=new Date(ts);return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`};
+const fmtT=ts=>{const d=new Date(ts);return `${fmt(ts).slice(2)} ${p2(d.getHours())}:${p2(d.getMinutes())}`};
+
+$("myBtn").onclick=()=>openModal("내 기록",box=>drawMy(box));
+function drawMy(box){
+  const a=getMy();
+  if(!a.length){box.innerHTML='<div class="note" style="text-align:center;padding:20px 0">아직 플레이 기록이 없어요</div>';return}
+  const t=document.createElement("table");
+  t.innerHTML='<thead><tr><th>난이도</th><th>시간(초)</th><th>날짜</th><th>리더보드</th></tr></thead>';
+  const tb=document.createElement("tbody");
+  a.forEach(e=>{
+    const tr=document.createElement("tr");
+    const cells=[LV[e.level].name,Number(e.time).toFixed(4),fmtT(e.ts)];
+    cells.forEach(v=>{const td=document.createElement("td");td.textContent=v;tr.appendChild(td)});
+    const td=document.createElement("td");
+    if(e.onBoard&&e.uid&&curUid&&e.uid!==curUid){td.textContent="다른 계정";td.className="note"}
+    else if(e.onBoard){
+      const b=document.createElement("button");b.className="sm ghost";b.textContent="삭제";
+      b.title=e.nick;
+      b.onclick=async()=>{
+        if(!confirm(`리더보드에서 "${e.nick}" 기록(${Number(e.time).toFixed(4)}초)을 삭제할까요?`))return;
+        b.disabled=true;
+        if(await deleteRecord(e.level,e.id)){updMy(e.mid,{onBoard:false,id:null});box.innerHTML="";drawMy(box)}
+        else{alert("삭제하지 못했어요. 이 기기에서 등록한 기록만 삭제할 수 있어요.");b.disabled=false}
+      };
+      td.appendChild(b);
+    }else td.textContent="-";
+    tr.appendChild(td);tb.appendChild(tr);
+  });
+  t.appendChild(tb);
+  const w=document.createElement("div");w.className="wrap";w.appendChild(t);box.appendChild(w);
+  const n=document.createElement("div");n.className="note";n.style.marginTop="10px";
+  n.textContent="리더보드 삭제는 이 기기에서 등록한 기록에만 가능해요.";box.appendChild(n);
+}
+
+/* ---------- 게임 화면 ---------- */
 function showMenu(){
   cancelAnimationFrame(raf);clearTimeout(wait);
   screen.innerHTML='<div class="note">난이도를 선택하세요</div><div class="lv" id="lvb"></div>';
@@ -119,7 +316,10 @@ function press(b,v,total){
   if(next>total){lastMs=performance.now()-t0;cancelAnimationFrame(raf);clear()}
 }
 function clear(){
-  const sec=(lastMs/1000).toFixed(4);
+  fanfare();
+  const sec=(lastMs/1000).toFixed(4),ts=Date.now();
+  cur={mid:"m"+ts,level,time:+sec,ts,onBoard:false,id:null,nick:null,uid:curUid};
+  addMy(cur);
   screen.innerHTML=`<div class="big">CLEAR</div><div class="big" style="font-size:1.8rem">${sec}초</div>
   <div id="rec"><button id="recBtn">기록하기</button></div>
   <button class="ghost" id="again">다시하기</button>`;
@@ -127,38 +327,41 @@ function clear(){
   $("again").onclick=showMenu;
 }
 function askNick(){
-  $("rec").innerHTML='<input id="nick" maxlength="12" placeholder="닉네임 (최대 12자)" autocomplete="off"> <button id="ok">확인</button>';
-  $("nick").focus();
+  $("rec").innerHTML='<input type="text" id="nick" maxlength="12" placeholder="닉네임 (최대 12자)" autocomplete="off"> <button id="ok">확인</button>';
+  $("nick").value=jget("reflex-nick","");$("nick").focus();
   const submit=async()=>{
     const nick=$("nick").value.trim();
     if(!nick){$("nick").focus();return}
-    if(saved)return;saved=true;
-    await saveRecord({level,nick,time:+(lastMs/1000).toFixed(4),ts:Date.now()});
-    $("rec").innerHTML='<div class="note">기록되었습니다 ✓</div>';
+    if(saved)return;saved=true;$("ok").disabled=true;
+    const id=await saveRecord({level:cur.level,nick,time:cur.time,ts:cur.ts});
+    if(id){
+      jset("reflex-nick",nick);
+      updMy(cur.mid,{onBoard:true,id,nick,uid:curUid});
+      $("rec").innerHTML='<div class="note">기록되었습니다 ✓</div>';
+    }else{
+      saved=false;$("ok").disabled=false;
+      alert("서버에 기록하지 못했어요. 잠시 후 다시 시도해 주세요.");
+    }
   };
   $("ok").onclick=submit;
   $("nick").onkeydown=e=>{if(e.key==="Enter")submit()};
 }
 
 /* ---------- 리더보드 ---------- */
-function renderTabs(){
+function renderLb(){
   $("tabs").innerHTML="";
   for(const k in LV){const b=document.createElement("button");b.textContent=LV[k].name;
     if(k===tab)b.className="on";b.onclick=()=>{tab=k;renderLb()};$("tabs").appendChild(b)}
-}
-function fmt(ts){const d=new Date(ts),p=x=>String(x).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
-function renderLb(){
-  renderTabs();
   const rows=records.filter(r=>r.level===tab).sort((a,b)=>a.time-b.time||a.ts-b.ts).slice(0,20);
   const tb=$("lb");tb.innerHTML="";
   if(!rows.length){tb.innerHTML='<tr><td colspan="4" class="note">아직 기록이 없습니다</td></tr>'}
   rows.forEach((r,i)=>{
-    const tr=document.createElement("tr");
-    [i+1,r.nick,Number(r.time).toFixed(4),fmt(r.ts)].forEach((v,j)=>{
+    const tr=document.createElement("tr");if(i<3)tr.className="top top"+(i+1);
+    [i<3?["🥇","🥈","🥉"][i]:i+1,r.nick,Number(r.time).toFixed(4),fmt(r.ts)].forEach((v,j)=>{
       const td=document.createElement("td");td.textContent=v;if(j===1)td.className="n";tr.appendChild(td)});
     tb.appendChild(tr);
   });
-  $("where").textContent=remote?"전체 참여자 공유 리더보드":"이 기기에만 저장되는 리더보드";
+  $("where").textContent=!remote?"이 기기에만 저장되는 리더보드":loadErr?"리더보드를 불러오지 못했어요":"전체 참여자 공유 리더보드";
 }
 
 showMenu();load();setInterval(()=>{if(remote)load()},30000);
