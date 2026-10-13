@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>순발력 테스트 게임</title>
+<style>
+:root{--bg:#f5f6fa;--card:#fff;--fg:#1f2430;--sub:#6b7280;--acc:#4f46e5;--line:#e5e7eb;--cell:#eef0ff;--done:#d1d5db;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12141c;--card:#1c2030;--fg:#eef0f6;--sub:#9aa3b5;--acc:#8b85ff;--line:#2d3348;--cell:#2a2f4a;--done:#3a4057}}
+:root[data-theme="dark"]{--bg:#12141c;--card:#1c2030;--fg:#eef0f6;--sub:#9aa3b5;--acc:#8b85ff;--line:#2d3348;--cell:#2a2f4a;--done:#3a4057}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif}
+main{max-width:480px;margin:0 auto;padding:16px}
+h1{text-align:center;font-size:1.5rem;margin:8px 0 14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+#screen{min-height:340px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
+button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:12px 20px;background:var(--acc);color:#fff;font-weight:600}
+button.ghost{background:var(--cell);color:var(--fg)}
+.lv{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.big{font-size:2.2rem;font-weight:800;letter-spacing:.05em}
+.note{color:var(--sub);font-size:.95rem}
+#grid{display:grid;gap:6px;width:100%;max-width:400px}
+#grid button{aspect-ratio:1;padding:0;background:var(--cell);color:var(--fg);font-size:1.5rem;border:1px solid var(--line)}
+#grid button.done{background:var(--done);color:transparent}
+#grid button.bad{background:#fca5a5}
+#timer{font-variant-numeric:tabular-nums;color:var(--sub)}
+input{font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);width:180px}
+.tabs{display:flex;gap:6px;margin:18px 0 8px}
+.tabs button{flex:1;padding:9px}
+.tabs button:not(.on){background:var(--cell);color:var(--fg)}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{padding:8px 4px;border-bottom:1px solid var(--line);text-align:center}
+th{color:var(--sub);font-weight:600}
+td.n{text-align:left;word-break:break-all}
+.wrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<main>
+<h1>순발력 테스트 게임</h1>
+<div class="card"><div id="screen"></div></div>
+
+<div class="tabs" id="tabs"></div>
+<div class="card wrap"><table>
+<thead><tr><th>순위</th><th>닉네임</th><th>시간(초)</th><th>날짜</th></tr></thead>
+<tbody id="lb"></tbody></table>
+<div class="note" id="where" style="margin-top:8px"></div></div>
+</main>
+
+<script>
+const LV={easy:{name:"쉬움",n:3},normal:{name:"보통",n:4},hard:{name:"어려움",n:5}};
+const $=id=>document.getElementById(id);
+const screen=$("screen");
+let level=null,next=1,t0=0,raf=0,wait=0,lastMs=0,saved=false,tab="easy";
+let records=[];
+
+/* ---------- 저장소: Firebase Realtime Database (REST) ---------- */
+// ★ 아래에 본인의 Firebase Realtime Database 주소를 넣으세요. (끝에 / 없이)
+// 예: "https://my-reflex-game-default-rtdb.firebaseio.com"
+const DB_URL="https://quickness-1a53c-default-rtdb.firebaseio.com";
+let remote=!!DB_URL;
+function lsGet(){try{return JSON.parse(localStorage.getItem("reflex-records")||"[]")}catch(e){return[]}}
+function lsSet(a){try{localStorage.setItem("reflex-records",JSON.stringify(a))}catch(e){}}
+async function load(){
+  if(!remote){records=lsGet();renderLb();return}
+  try{
+    const out=[];
+    await Promise.all(Object.keys(LV).map(async k=>{
+      const q=`?orderBy=${encodeURIComponent('"time"')}&limitToFirst=20`;
+      const r=await fetch(`${DB_URL}/records/${k}.json${q}`);
+      if(!r.ok)throw new Error(r.status);
+      const o=await r.json()||{};
+      Object.values(o).forEach(v=>out.push({...v,level:k}));
+    }));
+    records=out;
+  }catch(e){records=lsGet();remote=false}
+  renderLb();
+}
+async function saveRecord(r){
+  if(remote){
+    try{
+      const body={nick:r.nick,time:r.time,ts:r.ts};
+      const res=await fetch(`${DB_URL}/records/${r.level}.json`,{method:"POST",body:JSON.stringify(body)});
+      if(res.ok){await load();return}
+    }catch(e){}
+    remote=false;
+  }
+  const a=lsGet();a.push(r);lsSet(a);records=a;renderLb();
+}
+
+/* ---------- 화면 ---------- */
+function showMenu(){
+  cancelAnimationFrame(raf);clearTimeout(wait);
+  screen.innerHTML='<div class="note">난이도를 선택하세요</div><div class="lv" id="lvb"></div>';
+  for(const k in LV){const b=document.createElement("button");b.textContent=LV[k].name;b.onclick=()=>ready(k);$("lvb").appendChild(b)}
+}
+function ready(k){
+  level=k;tab=k;renderLb();
+  screen.innerHTML='<div class="big">READY</div><div class="note">3~10초 후 시작 됩니다.</div>';
+  wait=setTimeout(start,3000+Math.random()*7000);
+}
+function start(){
+  const n=LV[level].n,total=n*n;
+  const nums=Array.from({length:total},(_,i)=>i+1).sort(()=>Math.random()-.5);
+  next=1;saved=false;
+  screen.innerHTML='<div id="timer">0.0000</div><div id="grid"></div>';
+  const g=$("grid");g.style.gridTemplateColumns=`repeat(${n},1fr)`;
+  nums.forEach(v=>{
+    const b=document.createElement("button");b.textContent=v;
+    b.onclick=()=>press(b,v,total);g.appendChild(b);
+  });
+  t0=performance.now();
+  (function tick(){$("timer").textContent=((performance.now()-t0)/1000).toFixed(4);raf=requestAnimationFrame(tick)})();
+}
+function press(b,v,total){
+  if(v!==next){b.classList.add("bad");setTimeout(()=>b.classList.remove("bad"),150);return}
+  b.classList.add("done");b.disabled=true;next++;
+  if(next>total){lastMs=performance.now()-t0;cancelAnimationFrame(raf);clear()}
+}
+function clear(){
+  const sec=(lastMs/1000).toFixed(4);
+  screen.innerHTML=`<div class="big">CLEAR</div><div class="big" style="font-size:1.8rem">${sec}초</div>
+  <div id="rec"><button id="recBtn">기록하기</button></div>
+  <button class="ghost" id="again">다시하기</button>`;
+  $("recBtn").onclick=askNick;
+  $("again").onclick=showMenu;
+}
+function askNick(){
+  $("rec").innerHTML='<input id="nick" maxlength="12" placeholder="닉네임 (최대 12자)" autocomplete="off"> <button id="ok">확인</button>';
+  $("nick").focus();
+  const submit=async()=>{
+    const nick=$("nick").value.trim();
+    if(!nick){$("nick").focus();return}
+    if(saved)return;saved=true;
+    await saveRecord({level,nick,time:+(lastMs/1000).toFixed(4),ts:Date.now()});
+    $("rec").innerHTML='<div class="note">기록되었습니다 ✓</div>';
+  };
+  $("ok").onclick=submit;
+  $("nick").onkeydown=e=>{if(e.key==="Enter")submit()};
+}
+
+/* ---------- 리더보드 ---------- */
+function renderTabs(){
+  $("tabs").innerHTML="";
+  for(const k in LV){const b=document.createElement("button");b.textContent=LV[k].name;
+    if(k===tab)b.className="on";b.onclick=()=>{tab=k;renderLb()};$("tabs").appendChild(b)}
+}
+function fmt(ts){const d=new Date(ts),p=x=>String(x).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`}
+function renderLb(){
+  renderTabs();
+  const rows=records.filter(r=>r.level===tab).sort((a,b)=>a.time-b.time||a.ts-b.ts).slice(0,20);
+  const tb=$("lb");tb.innerHTML="";
+  if(!rows.length){tb.innerHTML='<tr><td colspan="4" class="note">아직 기록이 없습니다</td></tr>'}
+  rows.forEach((r,i)=>{
+    const tr=document.createElement("tr");
+    [i+1,r.nick,Number(r.time).toFixed(4),fmt(r.ts)].forEach((v,j)=>{
+      const td=document.createElement("td");td.textContent=v;if(j===1)td.className="n";tr.appendChild(td)});
+    tb.appendChild(tr);
+  });
+  $("where").textContent=remote?"전체 참여자 공유 리더보드":"이 기기에만 저장되는 리더보드";
+}
+
+showMenu();load();setInterval(()=>{if(remote)load()},30000);
+</script>
+</body>
+</html>
